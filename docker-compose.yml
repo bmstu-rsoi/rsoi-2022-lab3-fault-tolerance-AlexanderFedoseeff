@@ -14,7 +14,33 @@ services:
     ports:
       - "5432:5432"
 
-# TODO добавить сервисы
+  gateway:
+    restart: on-failure
+    build: ./gateway/
+    container_name: gateway
+    ports:
+      - "8080:8080"
+
+  reservation:
+    restart: on-failure
+    build: ./reservation/
+    container_name: reservation
+    ports:
+      - "8070:8070"
+
+  payment:
+    restart: on-failure
+    build: ./payment/
+    container_name: payment
+    ports:
+      - "8060:8060"
+
+  loyalty:
+    restart: on-failure
+    build: ./loyalty/
+    container_name: loyalty
+    ports:
+      - "8050:8050"
 
 volumes:
   db-data:
