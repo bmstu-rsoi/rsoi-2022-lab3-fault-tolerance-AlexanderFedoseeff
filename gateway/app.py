@@ -51,7 +51,7 @@ def get_loyalty():
         check_response_loyalty = requests.get('http://loyalty:8050/manage/health')
     except requests.exceptions.ConnectionError:
         loyalty_service = loyalty_service + 1
-        return make_response(jsonify({'error': 'Loyalty Service unavailable'}), 503)
+        return make_response(jsonify({'status': 'Loyalty Service unavailable'}), 503)
     if 'X-User-Name' not in request.headers:
         abort(400)
     username = request.headers.get('X-User-Name')
@@ -67,7 +67,7 @@ def reservate():
         check_response_reservation = requests.get('http://reservation:8070/manage/health')
     except requests.exceptions.ConnectionError:
         reservation_service = reservation_service + 1
-        return make_response(jsonify({{'error': 'Loyalty Service unavailable'}}), 503)
+        return make_response(jsonify({{'status': 'Loyalty Service unavailable'}}), 503)
     discount_computed = False
     find_hotel_id = False
     payment_complited = False
