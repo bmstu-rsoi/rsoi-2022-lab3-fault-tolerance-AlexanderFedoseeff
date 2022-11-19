@@ -17,6 +17,11 @@ app = Flask(__name__)
 def not_found(error):
     return make_response(jsonify({'error': 'Not found in reservation'}), 404)
 
+#а жива ли служба?
+@app.route('/manage/health', methods=['GET'])
+def health():
+    return make_response(jsonify({}), 200)
+
 @app.route('/api/v1/test', methods=['GET'])
 def get_test():
     return make_response(jsonify({'test': 'ok', 'port': port}), 200)

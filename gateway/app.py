@@ -24,6 +24,11 @@ def get_test():
 def not_found(error):
     return make_response(jsonify({'error': 'Not found in gateway'}), 404)
 
+#а жива ли служба?
+@app.route('/manage/health', methods=['GET'])
+def health():
+    return make_response(jsonify({}), 200)
+
 #получить список отелей
 @app.route('/api/v1/hotels', methods=['GET'])
 def get_hotels():
@@ -247,6 +252,7 @@ def me():
                 'endDate': r['endDate']})
     response_loyalty = requests.get('http://loyalty:8050/api/v1/loyalty', params = {'username': username})
     return make_response(jsonify({'reservations': result, 'loyalty': response_loyalty.json()}), 200)
+
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", debug=True, port=int(port))
