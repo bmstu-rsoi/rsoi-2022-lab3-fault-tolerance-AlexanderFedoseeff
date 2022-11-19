@@ -291,8 +291,14 @@ def me():
                 'status': r['status'],  
                 'startDate': r['startDate'], 
                 'endDate': r['endDate']})
-    response_loyalty = requests.get('http://loyalty:8050/api/v1/loyalty', params = {'username': username})
-    return make_response(jsonify({'reservations': result, 'loyalty': response_loyalty.json()}), 200)
+    #проверяем жива ли система лояльности
+    check_response_loyalty = requests.get('http://loyalty:8050/manage/health')
+    if check_response_loyalty.status_code != 200:
+        loyalty_service = loyalty_service + 1
+        return make_response(jsonify({'reservations': result, 'loyalty': {}}), 200)
+    else:     
+        response_loyalty = requests.get('http://loyalty:8050/api/v1/loyalty', params = {'username': username})
+        return make_response(jsonify({'reservations': result, 'loyalty': response_loyalty.json()}), 200)
 
 
 if __name__ == '__main__':
