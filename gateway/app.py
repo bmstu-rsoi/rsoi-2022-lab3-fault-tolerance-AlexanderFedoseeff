@@ -268,13 +268,28 @@ def cancel_reservation(reservationUid):
             except requests.exceptions.ConnectionError:
                 loyalty_service = loyalty_service + 1
                 #здесь запустим цикл повторов
-                return make_response(jsonify({}), 200)
+                trying_loyalty_down(username)
+                return make_response(jsonify({}), 204)
         else:
             return make_response(jsonify({'payment': False}), 400)
     else:
         return make_response(jsonify({'reservation': False}), 400)
 
-    
+def trying_loyalty_down(username):
+    #проверяем жива ли система лояльности
+    global loyalty_service
+    flag = True
+    while flag:
+        try:
+            check_response_loyalty = requests.get('http://loyalty:8050/manage/health')
+            response_loyalty = requests.post('http://loyalty:8050/api/v1/loyalty_down', data = {'username': username})
+            if response_loyalty.status_code == 201:
+                flag = False
+                break
+            else:
+                time.sleep(3)
+        except requests.exceptions.ConnectionError:
+                time.sleep(3)
 
 #информация по всем бронированиям пользователя
 @app.route('/api/v1/reservations', methods=['GET'])
