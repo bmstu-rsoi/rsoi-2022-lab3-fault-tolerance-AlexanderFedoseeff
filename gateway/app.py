@@ -21,6 +21,8 @@ reservation_service = 0
 loyalty_service = 0
 payment_service = 0
 
+loyalty_down_username = []
+
 @app.route('/api/v1/test', methods=['GET'])
 def get_test():
     return make_response(jsonify({'test': 'ok', 'port': port}), 200)
@@ -55,6 +57,7 @@ def get_loyalty():
     global loyalty_service
     try:
         check_response_loyalty = requests.get('http://loyalty:8050/manage/health')
+        upgrade_loyalty_down()
     except requests.exceptions.ConnectionError:
         loyalty_service = loyalty_service + 1
         return make_response(jsonify({'message': 'Loyalty Service unavailable'}), 503)
@@ -98,6 +101,7 @@ def reservate():
     global loyalty_service
     try:
         check_response_loyalty = requests.get('http://loyalty:8050/manage/health')
+        upgrade_loyalty_down()
     except requests.exceptions.ConnectionError:
         loyalty_service = loyalty_service + 1
         return make_response(jsonify({'message': 'Loyalty Service unavailable'}), 503)
@@ -143,6 +147,7 @@ def reservate():
                 paymentUid = response_payment.json()['payment_uid']
                 status = response_payment.json()['status']
                 #поднимаем статус в системе лояльности
+                upgrade_loyalty_down()
                 response_loyalty_up = requests.patch('http://loyalty:8050/api/v1/loyalty_up', data = {'username': username})
                 if response_loyalty_up.status_code == 200:
                     #бронируем
@@ -262,34 +267,41 @@ def cancel_reservation(reservationUid):
                 check_response_loyalty = requests.get('http://loyalty:8050/manage/health')
                 response_loyalty = requests.post('http://loyalty:8050/api/v1/loyalty_down', data = {'username': username})
                 if response_loyalty.status_code == 201:
+                    upgrade_loyalty_down()
                     return make_response(jsonify({}), 204)
                 else:
                     return make_response(jsonify({'loyalty': False}), 400)
             except requests.exceptions.ConnectionError:
                 loyalty_service = loyalty_service + 1
-                #здесь запустим цикл повторов
-                trying_loyalty_down(username)
+                #отложеная задача
+                l = list(filter(lambda item: item['username'] == username, loyalty_down_username))
+                if len(l) == 0:
+                    loyalty_down_username.append({'username': username, 'counter': 1})
+                else:
+                    l[0] = {{'username': username, 'counter': l[0]['counter'] + 1}}
                 return make_response(jsonify({}), 204)
         else:
             return make_response(jsonify({'payment': False}), 400)
     else:
         return make_response(jsonify({'reservation': False}), 400)
 
-def trying_loyalty_down(username):
-    #проверяем жива ли система лояльности
+def upgrade_loyalty_down():
     global loyalty_service
-    flag = True
-    while flag:
+    global loyalty_down_username
+    if len(loyalty_down_username) > 0:
         try:
             check_response_loyalty = requests.get('http://loyalty:8050/manage/health')
-            response_loyalty = requests.post('http://loyalty:8050/api/v1/loyalty_down', data = {'username': username})
-            if response_loyalty.status_code == 201:
-                flag = False
-                break
-            else:
-                time.sleep(3)
+            for i in loyalty_down_username:
+                print(i)
+                if i['counter'] > 0:
+                    while i['counter'] > 0:
+                        response_loyalty = requests.post('http://loyalty:8050/api/v1/loyalty_down', data = {'username': i['username']})
+                        if response_loyalty.status_code == 201:
+                            i['counter'] = (i['counter'] - 1)
+            loyalty_service = 0
+            loyalty_down_username = []
         except requests.exceptions.ConnectionError:
-                time.sleep(3)
+                print('not this time')
 
 #информация по всем бронированиям пользователя
 @app.route('/api/v1/reservations', methods=['GET'])
