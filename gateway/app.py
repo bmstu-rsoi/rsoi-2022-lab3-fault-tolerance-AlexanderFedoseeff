@@ -57,7 +57,7 @@ def create_person():
     check_response_reservation = requests.get('http://reservation:8070/manage/health')
     if check_response_reservation.status_code != 200:
         reservation_service = reservation_service + 1
-        return make_response(jsonify({}), 500)
+        return make_response(jsonify({}), 503)
     discount_computed = False
     find_hotel_id = False
     payment_complited = False
@@ -82,7 +82,7 @@ def create_person():
     check_response_loyalty = requests.get('http://loyalty:8050/manage/health')
     if check_response_reservation.status_code != 200:
         loyalty_service = loyalty_service + 1
-        return make_response(jsonify({}), 500)
+        return make_response(jsonify({}), 503)
     #узнаем статус в системе лояльности
     response_loyalty = requests.get('http://loyalty:8050/api/v1/loyalty', params = {'username': username})
     if response_loyalty.status_code == 200:
@@ -116,7 +116,7 @@ def create_person():
             check_response_payment = requests.get('http://payment:8060/manage/health')
             if check_response_payment.status_code != 200:
                 payment_service = payment_service + 1
-                return make_response(jsonify({}), 500)
+                return make_response(jsonify({}), 503)
             #проводим платеж
             response_payment = requests.post('http://payment:8060/api/v1/post_payment', data = {'price': total_price})
             if response_payment.status_code == 201:
@@ -203,12 +203,12 @@ def cancel_reservation(reservationUid):
     check_response_reservation = requests.get('http://reservation:8070/manage/health')
     if check_response_reservation.status_code != 200:
         reservation_service = reservation_service + 1
-        return make_response(jsonify({}), 500)
+        return make_response(jsonify({}), 503)
     #жив ли сервис оплаты?
     check_response_payment = requests.get('http://payment:8060/manage/health')
     if check_response_payment.status_code != 200:
         payment_service = payment_service + 1
-        return make_response(jsonify({}), 500)
+        return make_response(jsonify({}), 503)
     if 'X-User-Name' not in request.headers:
         abort(400)
     username = request.headers.get('X-User-Name')
