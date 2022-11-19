@@ -7,6 +7,7 @@ import requests
 import datetime
 import json
 import uuid
+import time
 from curses.ascii import NUL
 
 
@@ -45,8 +46,10 @@ def get_hotels():
 @app.route('/api/v1/loyalty', methods=['GET'])
 def get_loyalty():
     #проверяем жива ли система лояльности
-    check_response_loyalty = requests.get('http://loyalty:8050/manage/health')
-    if check_response_loyalty.status_code != 200:
+    global loyalty_service
+    try:
+        check_response_loyalty = requests.get('http://loyalty:8050/manage/health')
+    except requests.exceptions.ConnectionError:
         loyalty_service = loyalty_service + 1
         return make_response(jsonify({}), 503)
     if 'X-User-Name' not in request.headers:
@@ -57,10 +60,12 @@ def get_loyalty():
 
 #забронировать отель
 @app.route('/api/v1/reservations', methods=['POST'])
-def create_person():
+def reservate():
     #а жив ли сервис бронирования?
-    check_response_reservation = requests.get('http://reservation:8070/manage/health')
-    if check_response_reservation.status_code != 200:
+    global reservation_service
+    try:
+        check_response_reservation = requests.get('http://reservation:8070/manage/health')
+    except requests.exceptions.ConnectionError:
         reservation_service = reservation_service + 1
         return make_response(jsonify({}), 503)
     discount_computed = False
@@ -84,8 +89,10 @@ def create_person():
     response_hotels = requests.get('http://reservation:8070/api/v1/hotels')
     result_hotels = response_hotels.json()
     #проверяем жива ли система лояльности
-    check_response_loyalty = requests.get('http://loyalty:8050/manage/health')
-    if check_response_loyalty.status_code != 200:
+    global loyalty_service
+    try:
+        check_response_loyalty = requests.get('http://loyalty:8050/manage/health')
+    except requests.exceptions.ConnectionError:
         loyalty_service = loyalty_service + 1
         return make_response(jsonify({}), 503)
     #узнаем статус в системе лояльности
@@ -118,8 +125,10 @@ def create_person():
         if discount_computed:
             total_price = int((days * price) - (((days * price) / 100) * discount))
             #жив ли сервис оплаты?
-            check_response_payment = requests.get('http://payment:8060/manage/health')
-            if check_response_payment.status_code != 200:
+            global payment_service
+            try:
+                check_response_payment = requests.get('http://payment:8060/manage/health')
+            except requests.exceptions.ConnectionError:
                 payment_service = payment_service + 1
                 return make_response(jsonify({}), 503)
             #проводим платеж
@@ -204,14 +213,18 @@ def get_reservation(reservationUid):
 #удаление бронирования
 @app.route('/api/v1/reservations/<reservationUid>', methods=['DELETE'])
 def cancel_reservation(reservationUid):
-    #а жив ли сервис бронирования?
-    check_response_reservation = requests.get('http://reservation:8070/manage/health')
-    if check_response_reservation.status_code != 200:
+    #жив ли сервис бронирования?
+    global reservation_service
+    try:
+        check_response_reservation = requests.get('http://reservation:8070/manage/health')
+    except requests.exceptions.ConnectionError:
         reservation_service = reservation_service + 1
         return make_response(jsonify({}), 503)
     #жив ли сервис оплаты?
-    check_response_payment = requests.get('http://payment:8060/manage/health')
-    if check_response_payment.status_code != 200:
+    global payment_service
+    try:
+        check_response_payment = requests.get('http://payment:8060/manage/health')
+    except requests.exceptions.ConnectionError:
         payment_service = payment_service + 1
         return make_response(jsonify({}), 503)
     if 'X-User-Name' not in request.headers:
@@ -223,17 +236,18 @@ def cancel_reservation(reservationUid):
         response_payment = requests.post('http://payment:8060/api/v1/cancel_payment', data = {'paymentUid': paymentUid})
         if response_payment.status_code == 201:
             #проверяем жива ли система лояльности
-            check_response_loyalty = requests.get('http://loyalty:8050/manage/health')
-            if check_response_loyalty.status_code != 200:
-                loyalty_service = loyalty_service + 1
-                #здесь запустим цикл повторов
-                return make_response(jsonify({}), 200)
-            else:
+            global loyalty_service
+            try:
+                check_response_loyalty = requests.get('http://loyalty:8050/manage/health')
                 response_loyalty = requests.post('http://loyalty:8050/api/v1/loyalty_down', data = {'username': username})
                 if response_loyalty.status_code == 201:
                     return make_response(jsonify({}), 204)
                 else:
                     return make_response(jsonify({'loyalty': False}), 400)
+            except requests.exceptions.ConnectionError:
+                loyalty_service = loyalty_service + 1
+                #здесь запустим цикл повторов
+                return make_response(jsonify({}), 200)
         else:
             return make_response(jsonify({'payment': False}), 400)
     else:
@@ -241,7 +255,7 @@ def cancel_reservation(reservationUid):
 
     
 
-#инормация по всем бронированиям пользователя
+#информация по всем бронированиям пользователя
 @app.route('/api/v1/reservations', methods=['GET'])
 def get_reservations():
     if 'X-User-Name' not in request.headers:
@@ -292,13 +306,14 @@ def me():
                 'startDate': r['startDate'], 
                 'endDate': r['endDate']})
     #проверяем жива ли система лояльности
-    check_response_loyalty = requests.get('http://loyalty:8050/manage/health')
-    if check_response_loyalty.status_code != 200:
-        loyalty_service = loyalty_service + 1
-        return make_response(jsonify({'reservations': result, 'loyalty': {}}), 200)
-    else:     
+    global loyalty_service
+    try:
+        check_response_loyalty = requests.get('http://loyalty:8050/manage/health')
         response_loyalty = requests.get('http://loyalty:8050/api/v1/loyalty', params = {'username': username})
         return make_response(jsonify({'reservations': result, 'loyalty': response_loyalty.json()}), 200)
+    except requests.exceptions.ConnectionError:
+        loyalty_service = loyalty_service + 1
+        return make_response(jsonify({'reservations': result, 'loyalty': jsonify({})}), 200)
 
 
 if __name__ == '__main__':
