@@ -16,6 +16,10 @@ if port is None:
 
 app = Flask(__name__)
 
+reservation_service = 0
+loyalty_service = 0
+payment_service = 0
+
 @app.route('/api/v1/test', methods=['GET'])
 def get_test():
     return make_response(jsonify({'test': 'ok', 'port': port}), 200)
@@ -49,6 +53,11 @@ def get_loyalty():
 #забронировать отель
 @app.route('/api/v1/reservations', methods=['POST'])
 def create_person():
+    #а жив ли сервис бронирования?
+    check_response_reservation = requests.get('http://reservation:8070/manage/health')
+    if check_response_reservation.status_code != 200:
+        reservation_service = reservation_service + 1
+        return make_response(jsonify({}), 500)
     discount_computed = False
     find_hotel_id = False
     payment_complited = False
@@ -69,6 +78,11 @@ def create_person():
     #получаем список отелей
     response_hotels = requests.get('http://reservation:8070/api/v1/hotels')
     result_hotels = response_hotels.json()
+    #проверяем жива ли система лояльности
+    check_response_loyalty = requests.get('http://loyalty:8050/manage/health')
+    if check_response_reservation.status_code != 200:
+        loyalty_service = loyalty_service + 1
+        return make_response(jsonify({}), 500)
     #узнаем статус в системе лояльности
     response_loyalty = requests.get('http://loyalty:8050/api/v1/loyalty', params = {'username': username})
     if response_loyalty.status_code == 200:
@@ -98,6 +112,11 @@ def create_person():
     if find_hotel_id:
         if discount_computed:
             total_price = int((days * price) - (((days * price) / 100) * discount))
+            #жив ли сервис оплаты?
+            check_response_payment = requests.get('http://payment:8060/manage/health')
+            if check_response_payment.status_code != 200:
+                payment_service = payment_service + 1
+                return make_response(jsonify({}), 500)
             #проводим платеж
             response_payment = requests.post('http://payment:8060/api/v1/post_payment', data = {'price': total_price})
             if response_payment.status_code == 201:
@@ -180,6 +199,16 @@ def get_reservation(reservationUid):
 #удаление бронирования
 @app.route('/api/v1/reservations/<reservationUid>', methods=['DELETE'])
 def cancel_reservation(reservationUid):
+    #а жив ли сервис бронирования?
+    check_response_reservation = requests.get('http://reservation:8070/manage/health')
+    if check_response_reservation.status_code != 200:
+        reservation_service = reservation_service + 1
+        return make_response(jsonify({}), 500)
+    #жив ли сервис оплаты?
+    check_response_payment = requests.get('http://payment:8060/manage/health')
+    if check_response_payment.status_code != 200:
+        payment_service = payment_service + 1
+        return make_response(jsonify({}), 500)
     if 'X-User-Name' not in request.headers:
         abort(400)
     username = request.headers.get('X-User-Name')
@@ -188,11 +217,18 @@ def cancel_reservation(reservationUid):
         paymentUid = response_reservation.json()['paymentUid']
         response_payment = requests.post('http://payment:8060/api/v1/cancel_payment', data = {'paymentUid': paymentUid})
         if response_payment.status_code == 201:
-            response_loyalty = requests.post('http://loyalty:8050/api/v1/loyalty_down', data = {'username': username})
-            if response_loyalty.status_code == 201:
-                return make_response(jsonify({}), 204)
+            #проверяем жива ли система лояльности
+            check_response_loyalty = requests.get('http://loyalty:8050/manage/health')
+            if check_response_loyalty.status_code != 200:
+                loyalty_service = loyalty_service + 1
+                #здесь запустим цикл повторов
+                return make_response(jsonify({}), 200)
             else:
-                return make_response(jsonify({'loyalty': False}), 400)
+                response_loyalty = requests.post('http://loyalty:8050/api/v1/loyalty_down', data = {'username': username})
+                if response_loyalty.status_code == 201:
+                    return make_response(jsonify({}), 204)
+                else:
+                    return make_response(jsonify({'loyalty': False}), 400)
         else:
             return make_response(jsonify({'payment': False}), 400)
     else:
