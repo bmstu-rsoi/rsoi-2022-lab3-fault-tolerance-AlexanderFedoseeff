@@ -44,6 +44,11 @@ def get_hotels():
 #получить информацию о статусе в системе лояльности
 @app.route('/api/v1/loyalty', methods=['GET'])
 def get_loyalty():
+    #проверяем жива ли система лояльности
+    check_response_loyalty = requests.get('http://loyalty:8050/manage/health')
+    if check_response_loyalty.status_code != 200:
+        loyalty_service = loyalty_service + 1
+        return make_response(jsonify({}), 503)
     if 'X-User-Name' not in request.headers:
         abort(400)
     username = request.headers.get('X-User-Name')
@@ -80,7 +85,7 @@ def create_person():
     result_hotels = response_hotels.json()
     #проверяем жива ли система лояльности
     check_response_loyalty = requests.get('http://loyalty:8050/manage/health')
-    if check_response_reservation.status_code != 200:
+    if check_response_loyalty.status_code != 200:
         loyalty_service = loyalty_service + 1
         return make_response(jsonify({}), 503)
     #узнаем статус в системе лояльности
