@@ -51,7 +51,7 @@ def get_loyalty():
         check_response_loyalty = requests.get('http://loyalty:8050/manage/health')
     except requests.exceptions.ConnectionError:
         loyalty_service = loyalty_service + 1
-        return make_response(jsonify({}), 503)
+        return make_response(jsonify({'error': 'Loyalty Service unavailable'}), 503)
     if 'X-User-Name' not in request.headers:
         abort(400)
     username = request.headers.get('X-User-Name')
@@ -67,7 +67,7 @@ def reservate():
         check_response_reservation = requests.get('http://reservation:8070/manage/health')
     except requests.exceptions.ConnectionError:
         reservation_service = reservation_service + 1
-        return make_response(jsonify({}), 503)
+        return make_response(jsonify({{'error': 'Loyalty Service unavailable'}}), 503)
     discount_computed = False
     find_hotel_id = False
     payment_complited = False
@@ -209,7 +209,6 @@ def get_reservation(reservationUid):
         return make_response(result[0], 200)
     else:
         return make_response(jsonify({}), 400)
-
 #удаление бронирования
 @app.route('/api/v1/reservations/<reservationUid>', methods=['DELETE'])
 def cancel_reservation(reservationUid):
@@ -313,7 +312,7 @@ def me():
         return make_response(jsonify({'reservations': result, 'loyalty': response_loyalty.json()}), 200)
     except requests.exceptions.ConnectionError:
         loyalty_service = loyalty_service + 1
-        return make_response(jsonify({'reservations': result, 'loyalty': jsonify({})}), 200)
+        return make_response(jsonify({'reservations': result, 'loyalty': {}}), 200)
 
 
 if __name__ == '__main__':
